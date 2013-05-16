@@ -1,0 +1,30 @@
+#!/system/bin/sh
+
+# workaround to download long term orbit data for BCM GPS
+
+lto_file=/data/gps/lto.dat
+lto_url=http://gllto.glpals.com/7day/latest/lto.dat
+alt_lto_url=http://216.34.140.138/7day/latest/lto.dat
+max_age_days=5
+net_retry_count=30
+net_retry_delay=10
+
+if [ ! -e $lto_file -o ! -z "$(find $lto_file -mtime +$max_age_days)" ]; then
+    echo "LTO data not found or > $max_age_days days old - attempting update"
+    for i in $(seq $net_retry_count); do
+        echo "checking connectivity"
+        if [ $(cat /proc/net/route | wc -l) -le 1 ]; then
+            echo "no network - waiting for route"
+            sleep $net_retry_delay
+        else
+            if wget -O $lto_file $lto_url || wget -O $lto_file $alt_lto_url; then
+                echo "LTO data updated"
+                exit 0
+            fi
+            break
+        fi
+    done
+    echo "LTO data update failed"
+    exit 1
+fi
+echo "LTO data < $max_age_days days old - skipping update"
